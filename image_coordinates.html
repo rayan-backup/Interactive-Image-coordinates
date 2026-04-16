@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Coordinate Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    color: #a9c4f5;
+    letter-spacing: 0.5px;
+  }
+
+  /* --- Path input bar --- */
+  #input-bar {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 860px;
+    margin-bottom: 16px;
+  }
+
+  #path-input {
+    flex: 1;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid #334;
+    background: #0f0f1e;
+    color: #eee;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    outline: none;
+    transition: border 0.2s;
+  }
+  #path-input:focus { border-color: #5a8dee; }
+  #path-input::placeholder { color: #556; }
+
+  #load-btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    background: #3a6fd8;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  #load-btn:hover { background: #5a8dee; }
+
+  #file-btn {
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid #334;
+    background: #0f0f1e;
+    color: #a9c4f5;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  #file-btn:hover { background: #1a1a3e; }
+  #file-input { display: none; }
+
+  /* --- Toolbar --- */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 860px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  #coord-box {
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    background: #0f0f1e;
+    border: 1px solid #334;
+    border-radius: 8px;
+    padding: 7px 16px;
+    color: #7ee8a2;
+    min-width: 200px;
+  }
+
+  #origin-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid #334;
+    background: #0f0f1e;
+    color: #f0c674;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #origin-btn:hover { background: #1a1a3e; }
+  #origin-btn.active { background: #3a3a10; border-color: #f0c674; }
+
+  #reset-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid #334;
+    background: #0f0f1e;
+    color: #e07070;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #reset-btn:hover { background: #2a1010; }
+
+  #mode-hint {
+    font-size: 12px;
+    color: #f0c674;
+    margin-left: 4px;
+  }
+
+  /* --- Canvas wrapper --- */
+  #canvas-wrapper {
+    width: 100%;
+    max-width: 860px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #2a2a4a;
+    background: #0a0a1a;
+    position: relative;
+  }
+
+  #coord-canvas { display: block; cursor: none; }
+
+  /* --- Placeholder --- */
+  #placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 380px;
+    color: #445;
+    gap: 12px;
+  }
+  #placeholder svg { opacity: 0.3; }
+  #placeholder p { font-size: 15px; }
+
+  /* --- Pinned points table --- */
+  #points-section {
+    width: 100%;
+    max-width: 860px;
+    margin-top: 18px;
+  }
+
+  #points-section h2 {
+    font-size: 14px;
+    font-weight: 500;
+    color: #a9c4f5;
+    margin-bottom: 8px;
+  }
+
+  #points-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+  }
+  #points-table th {
+    text-align: left;
+    padding: 6px 12px;
+    background: #0f0f1e;
+    color: #556;
+    border-bottom: 1px solid #222;
+    font-weight: 500;
+  }
+  #points-table td {
+    padding: 5px 12px;
+    border-bottom: 1px solid #181828;
+    color: #ccc;
+  }
+  #points-table tr:hover td { background: #0f0f22; }
+  .del-btn {
+    color: #e07070;
+    cursor: pointer;
+    font-size: 14px;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .del-btn:hover { color: #ff5555; }
+
+  #clear-pts-btn {
+    margin-top: 8px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid #334;
+    background: #0f0f1e;
+    color: #e07070;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #clear-pts-btn:hover { background: #1a0808; }
+
+  #no-points { font-size: 13px; color: #445; padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<h1>Image Coordinate Tracker</h1>
+
+<!-- Input bar -->
+<div id="input-bar">
+  <input id="path-input" type="text" placeholder="Paste image path or URL here  (e.g. C:\photos\map.png  or  https://...)">
+  <button id="load-btn" onclick="loadFromPath()">Load</button>
+  <button class="file-btn" id="file-btn" onclick="document.getElementById('file-input').click()">Browse file</button>
+  <input id="file-input" type="file" accept="image/*" onchange="loadFromFile(event)">
+</div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <div id="coord-box">x: —,  y: —</div>
+  <button id="origin-btn" onclick="toggleOriginMode()">Set origin</button>
+  <button id="reset-btn" onclick="resetOrigin()">Reset origin</button>
+  <span id="mode-hint"></span>
+</div>
+
+<!-- Canvas area -->
+<div id="canvas-wrapper">
+  <div id="placeholder">
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <rect x="4" y="12" width="56" height="40" rx="4" stroke="#aaa" stroke-width="2"/>
+      <circle cx="20" cy="26" r="5" stroke="#aaa" stroke-width="2"/>
+      <path d="M4 40 L18 28 L30 38 L42 24 L60 40" stroke="#aaa" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+    <p>Load an image to start tracking coordinates</p>
+  </div>
+  <canvas id="coord-canvas" style="display:none;"></canvas>
+</div>
+
+<!-- Pinned points -->
+<div id="points-section">
+  <h2>Pinned points  <span style="color:#445;font-weight:400">(click on image to pin)</span></h2>
+  <div id="no-points">No points pinned yet.</div>
+  <table id="points-table" style="display:none;">
+    <thead><tr><th>#</th><th>x</th><th>y</th><th>pixel x</th><th>pixel y</th><th></th></tr></thead>
+    <tbody id="points-body"></tbody>
+  </table>
+  <button id="clear-pts-btn" style="display:none;" onclick="clearPoints()">Clear all</button>
+</div>
+
+<script>
+const canvas = document.getElementById('coord-canvas');
+const ctx = canvas.getContext('2d');
+const coordBox = document.getElementById('coord-box');
+const modeHint = document.getElementById('mode-hint');
+const originBtn = document.getElementById('origin-btn');
+const placeholder = document.getElementById('placeholder');
+
+let img = null;
+let imgW = 0, imgH = 0;
+let drawX = 0, drawY = 0, drawW = 0, drawH = 0;   // image draw region on canvas
+let originPx = null;   // origin in image pixel coords
+let mouseX = -9999, mouseY = -9999;
+let settingOrigin = false;
+let points = [];
+let pointCounter = 0;
+
+/* ── Load image ─────────────────────────────────────── */
+function loadFromPath() {
+  const src = document.getElementById('path-input').value.trim();
+  if (!src) return;
+  applyImage(src);
+}
+
+function loadFromFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  applyImage(url);
+}
+
+function applyImage(src) {
+  const i = new Image();
+  i.onload = () => {
+    img = i; imgW = i.naturalWidth; imgH = i.naturalHeight;
+    originPx = { x: Math.round(imgW / 2), y: Math.round(imgH / 2) };
+    points = []; pointCounter = 0; refreshTable();
+    resizeCanvas();
+    placeholder.style.display = 'none';
+    canvas.style.display = 'block';
+    draw();
+  };
+  i.onerror = () => alert('Could not load image. Check the path/URL and try again.');
+  i.src = src;
+}
+
+/* ── Canvas sizing ───────────────────────────────────── */
+function resizeCanvas() {
+  if (!img) return;
+  const maxW = document.getElementById('canvas-wrapper').clientWidth;
+  const maxH = Math.min(560, window.innerHeight * 0.65);
+  const scale = Math.min(maxW / imgW, maxH / imgH, 1);
+  drawW = Math.round(imgW * scale);
+  drawH = Math.round(imgH * scale);
+  canvas.width = drawW;
+  canvas.height = drawH;
+  drawX = 0; drawY = 0;
+}
+
+/* ── Coordinate helpers ──────────────────────────────── */
+function canvasToPx(cx, cy) {
+  return {
+    px: Math.round(cx * (imgW / drawW)),
+    py: Math.round(cy * (imgH / drawH))
+  };
+}
+
+function pxToCoord(px, py) {
+  return {
+    x: px - originPx.x,
+    y: -(py - originPx.y)   // flip Y so up = positive
+  };
+}
+
+function pxToCanvas(px, py) {
+  return {
+    cx: px * (drawW / imgW),
+    cy: py * (imgH > 0 ? drawH / imgH : 1)
+  };
+}
+
+/* ── Draw ────────────────────────────────────────────── */
+function draw() {
+  if (!img) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+  drawGrid();
+  drawOriginMarker();
+  drawPinnedPoints();
+  if (mouseX >= 0 && mouseX <= canvas.width && mouseY >= 0 && mouseY <= canvas.height) {
+    drawCrosshair(mouseX, mouseY);
+    drawProjectionLines(mouseX, mouseY);
+  }
+}
+
+function drawGrid() {
+  const step = 40;
+  const { cx: ocx, cy: ocy } = pxToCanvas(originPx.x, originPx.y);
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 0.5;
+  for (let x = (ocx % step + step) % step; x < canvas.width; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = (ocy % step + step) % step; y < canvas.height; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+  // axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, ocy); ctx.lineTo(canvas.width, ocy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ocx, 0); ctx.lineTo(ocx, canvas.height); ctx.stroke();
+}
+
+function drawOriginMarker() {
+  const { cx, cy } = pxToCanvas(originPx.x, originPx.y);
+  ctx.fillStyle = '#f0c674';
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 11px Courier New';
+  ctx.fillStyle = '#f0c674';
+  ctx.fillText('O', cx + 8, cy - 5);
+}
+
+function drawCrosshair(cx, cy) {
+  const ARM = 13;
+  ctx.strokeStyle = '#5af';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - ARM, cy); ctx.lineTo(cx + ARM, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - ARM); ctx.lineTo(cx, cy + ARM); ctx.stroke();
+
+  const { px, py } = canvasToPx(cx, cy);
+  const { x, y } = pxToCoord(px, py);
+  const label = `(${x}, ${y})`;
+  const pad = 5;
+  ctx.font = '12px Courier New';
+  const tw = ctx.measureText(label).width;
+  let lx = cx + 14, ly = cy - 10;
+  if (lx + tw + pad * 2 > canvas.width) lx = cx - tw - pad * 2 - 14;
+  if (ly < 14) ly = cy + 22;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.beginPath();
+  ctx.roundRect(lx - pad, ly - 13, tw + pad * 2, 18, 4);
+  ctx.fill();
+  ctx.fillStyle = '#7ee8a2';
+  ctx.fillText(label, lx, ly);
+}
+
+function drawProjectionLines(cx, cy) {
+  const { cx: ocx, cy: ocy } = pxToCanvas(originPx.x, originPx.y);
+  ctx.strokeStyle = 'rgba(90,170,255,0.35)';
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ocx, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, ocy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#e07070';
+  ctx.beginPath(); ctx.arc(cx, ocy, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ocx, cy, 3, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawPinnedPoints() {
+  points.forEach((p, i) => {
+    const { cx, cy } = pxToCanvas(p.px, p.py);
+    ctx.fillStyle = '#ff6b6b';
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = 'bold 11px Courier New';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(i + 1, cx + 7, cy - 5);
+  });
+}
+
+/* ── Mouse events ────────────────────────────────────── */
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  mouseX = e.clientX - r.left;
+  mouseY = e.clientY - r.top;
+  const { px, py } = canvasToPx(mouseX, mouseY);
+  const { x, y } = pxToCoord(px, py);
+  coordBox.textContent = `x: ${x},  y: ${y}`;
+  draw();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  mouseX = -9999; mouseY = -9999;
+  coordBox.textContent = 'x: —,  y: —';
+  draw();
+});
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  const cx = e.clientX - r.left;
+  const cy = e.clientY - r.top;
+
+  if (settingOrigin) {
+    const { px, py } = canvasToPx(cx, cy);
+    originPx = { x: px, y: py };
+    settingOrigin = false;
+    originBtn.classList.remove('active');
+    modeHint.textContent = 'Origin set!';
+    setTimeout(() => modeHint.textContent = '', 1500);
+    draw(); return;
+  }
+
+  const { px, py } = canvasToPx(cx, cy);
+  const { x, y } = pxToCoord(px, py);
+  pointCounter++;
+  points.push({ n: pointCounter, x, y, px, py });
+  refreshTable();
+  draw();
+});
+
+/* ── Origin controls ─────────────────────────────────── */
+function toggleOriginMode() {
+  settingOrigin = !settingOrigin;
+  originBtn.classList.toggle('active', settingOrigin);
+  modeHint.textContent = settingOrigin ? 'Click on image to place origin' : '';
+}
+
+function resetOrigin() {
+  if (!img) return;
+  originPx = { x: Math.round(imgW / 2), y: Math.round(imgH / 2) };
+  modeHint.textContent = 'Origin reset to center';
+  setTimeout(() => modeHint.textContent = '', 1500);
+  draw();
+}
+
+/* ── Pinned points table ─────────────────────────────── */
+function refreshTable() {
+  const tbody = document.getElementById('points-body');
+  const table = document.getElementById('points-table');
+  const none = document.getElementById('no-points');
+  const clr = document.getElementById('clear-pts-btn');
+
+  tbody.innerHTML = '';
+  if (points.length === 0) {
+    table.style.display = 'none'; none.style.display = 'block'; clr.style.display = 'none'; return;
+  }
+  table.style.display = 'table'; none.style.display = 'none'; clr.style.display = 'inline-block';
+  points.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${p.n}</td><td>${p.x}</td><td>${p.y}</td><td>${p.px}</td><td>${p.py}</td><td><button class="del-btn" onclick="deletePoint(${i})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function deletePoint(i) { points.splice(i, 1); refreshTable(); draw(); }
+function clearPoints() { points = []; refreshTable(); draw(); }
+
+/* ── Resize ──────────────────────────────────────────── */
+window.addEventListener('resize', () => { if (img) { resizeCanvas(); draw(); } });
+</script>
+</body>
+</html>
